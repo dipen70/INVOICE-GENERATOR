@@ -171,15 +171,43 @@ def rebuild_csv_from_json() -> int:
     _ensure_app_dir()
     if CSV_FILE.exists():
         CSV_FILE.unlink()
+    if not entries:
+        # Still write the header row so the file exists and is discoverable.
+        with open(CSV_FILE, "w", encoding="utf-8-sig", newline="") as f:
+            csv.DictWriter(f, fieldnames=CSV_FIELDS).writeheader()
+        return 0
     for entry in entries:
         _append_csv(entry)
     return len(entries)
 
 
+def _csv_is_stale() -> bool:
+    """True if the CSV is missing or older than the JSON log."""
+    if not CSV_FILE.exists():
+        return True
+    if not LOG_FILE.exists():
+        return False
+    try:
+        return CSV_FILE.stat().st_mtime < LOG_FILE.stat().st_mtime
+    except OSError:
+        return True
+
+
+def init_log_files() -> None:
+    """Ensure both log files exist on disk. Called on module import so the
+    CSV is visible the moment the app starts, even before any invoices are
+    generated. Backfills CSV from JSON if it's missing or out of date."""
+    _ensure_app_dir()
+    if not LOG_FILE.exists():
+        _save_entries([])
+    if _csv_is_stale():
+        rebuild_csv_from_json()
+
+
 def open_csv_file_externally() -> None:
     """Open invoice_log.csv in the OS's default CSV handler (Excel, etc.).
-    Builds it from the JSON log if it doesn't exist yet."""
-    if not CSV_FILE.exists():
+    Rebuilds from JSON if missing or out of sync."""
+    if _csv_is_stale():
         rebuild_csv_from_json()
     _open_externally(CSV_FILE)
 
@@ -276,7 +304,7 @@ def show_log_window(parent: tk.Misc | None = None) -> None:
         font=("Segoe UI", 8), anchor="w",
     )
     status.pack(fill="x", padx=10, pady=(0, 6))
-    status.config(text=f"Log file: {LOG_FILE}")
+    status.config(text=f"JSON: {LOG_FILE}    ·    CSV: {CSV_FILE}")
 
 
 def _populate(tree: ttk.Treeview) -> None:
@@ -309,3 +337,11 @@ def _sort_by(tree: ttk.Treeview, col: str, descending: bool) -> None:
     for index, (_, k) in enumerate(rows):
         tree.move(k, "", index)
     tree.heading(col, command=lambda: _sort_by(tree, col, not descending))
+
+
+# Make the CSV (and its directory) exist as soon as the module is imported,
+# so users can find the file before generating their first invoice.
+try:
+    init_log_files()
+except OSError:
+    pass
