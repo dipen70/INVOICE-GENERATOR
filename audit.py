@@ -25,7 +25,12 @@ from typing import Optional
 
 APP_DIR = Path.home() / ".invoice_app"
 LOG_FILE = APP_DIR / "invoice_log.json"
-CSV_FILE = APP_DIR / "invoice_log.csv"
+
+# CSV lives next to the app source so it shows up in the project folder /
+# IDE file tree — easy to find in Explorer without digging into the hidden
+# .invoice_app home directory.
+PROJECT_DIR = Path(__file__).resolve().parent
+CSV_FILE = PROJECT_DIR / "invoice_log.csv"
 
 CSV_FIELDS = [
     "timestamp", "date", "time",

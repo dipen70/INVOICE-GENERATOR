@@ -3,6 +3,9 @@ client_secret.json
 token.json
 .invoice_app/
 
+# Local activity-log CSV mirror (generated at runtime next to audit.py)
+invoice_log.csv
+
 # Python
 __pycache__/
 *.pyc
